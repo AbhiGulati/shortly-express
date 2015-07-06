@@ -23,24 +23,34 @@ app.use(bodyParser.urlencoded({ extended: true }));
 app.use(express.static(__dirname + '/public'));
 
 
-app.get('/', 
+app.get('/',
 function(req, res) {
   res.render('index');
 });
 
-app.get('/create', 
+app.get('/login',
+function(req, res) {
+  res.render('login');
+});
+
+app.get('/signup',
+function(req, res) {
+  res.render('signup');
+});
+
+app.get('/create',
 function(req, res) {
   res.render('index');
 });
 
-app.get('/links', 
+app.get('/links',
 function(req, res) {
   Links.reset().fetch().then(function(links) {
     res.send(200, links.models);
   });
 });
 
-app.post('/links', 
+app.post('/links',
 function(req, res) {
   var uri = req.body.url;
 
@@ -78,7 +88,30 @@ function(req, res) {
 // Write your authentication routes here
 /************************************************************/
 
+app.post('/signup', function(req, res) {
+  console.log(req.body);
+  console.log(JSON.stringify({username:req.body.username}));
+  var username = req.body.username;
+  new User({username: username}).fetch().then(function(found) {
+    console.log(found);
+    if(found) {
+      res.status(422).send({error: "this username already exists"});
+    } else {
+      var user = new User({username:req.body.username});
+      user.save()
+        .then(function(newUser) {
+          console.log('newUser',newUser)
+          Users.add(newUser);
+          res.send(200, newUser)
+        })
+    }
+  })
+})
 
+/*
+   app.post('login', ....)
+   app.post('/logout',...)
+*/
 
 /************************************************************/
 // Handle the wildcard route last - if all other routes fail
