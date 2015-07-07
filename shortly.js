@@ -8,6 +8,7 @@ var bcrypt = require('bcrypt-nodejs');
 
 
 var db = require('./app/config');
+//var knex = require('knex');
 var Users = require('./app/collections/users');
 var User = require('./app/models/user');
 var Links = require('./app/collections/links');
@@ -29,46 +30,50 @@ app.use(cookieParser());
 app.use(express.static(__dirname + '/public'));
 
 
-app.get('/',
-function(req, res) {
+app.get('/', function(req, res) {
   res.render('index');
-  console.log("cookies", req.cookies);
 });
 
-app.get('/login',
-function(req, res) {
+app.get('/login', function(req, res) {
   res.render('login');
 });
 
-app.get('/signup',
-function(req, res) {
+app.get('/signup', function(req, res) {
   res.render('signup');
 });
 
-app.get('/create',
-function(req, res) {
+app.get('/create', function(req, res) {
   res.render('index');
 });
+
+app.get('/logout', function(req, res){
+  new Session({apiKey: req.cookies.apiKey}).fetch().then(function(session){
+    if(session) {
+      console.log("apiKey",session.get('apiKey'));
+      session.destroy();
+    }
+  })
+
+  res.redirect("/login");
+})
 
 app.get('/links',
 function(req, res) {
   new Session({apiKey: req.cookies.apiKey}).fetch().then(function(found){
     if (found) {
-
+      Links.reset().fetch().then(function(links) {
+        res.send(200, links.models);
+      });
+    } else {
+      res.redirect("/login");
     }
-  }
-
-
-
-  Links.reset().fetch().then(function(links) {
-    res.send(200, links.models);
   });
+
 });
 
 app.post('/links',
 function(req, res) {
   var uri = req.body.url;
-
   if (!util.isValidUrl(uri)) {
     console.log('Not a valid url: ', uri);
     return res.send(404);
@@ -90,6 +95,7 @@ function(req, res) {
           base_url: req.headers.origin
         });
 
+        console.log(link.get('url'), link.get('base_url'));
         link.save().then(function(newLink) {
           Links.add(newLink);
           res.send(200, newLink);
@@ -102,6 +108,19 @@ function(req, res) {
 /************************************************************/
 // Write your authentication routes here
 /************************************************************/
+
+/*
+function setCookie(name, value, expires, path, domain, secure) {
+    document.cookie = name + "=" + escape(value) +
+        ((expires) ? "; expires=" + expires : "") +
+        ((path) ? "; path=" + path : "") +
+        ((domain) ? "; domain=" + domain : "") +
+        ((secure) ? "; secure" : "");
+}
+
+var expires = new Date(new Date().getTime()+30*24*60*60*1000).toGMTString();
+setCookie("username", "id", expires);
+*/
 
 app.post('/signup', function(req, res) {
   //console.log(req.body);
