@@ -31,7 +31,15 @@ app.use(express.static(__dirname + '/public'));
 
 
 app.get('/', function(req, res) {
-  res.render('index');
+  new Session({apiKey: req.cookies.apiKey}).fetch().then(function(found){
+    if (found) {
+      Links.reset().fetch().then(function(links) {
+        res.render('index');
+      });
+    } else {
+      res.redirect("/login");
+    }
+  });
 });
 
 app.get('/login', function(req, res) {
@@ -46,19 +54,9 @@ app.get('/create', function(req, res) {
   res.render('index');
 });
 
-app.get('/logout', function(req, res){
-  new Session({apiKey: req.cookies.apiKey}).fetch().then(function(session){
-    if(session) {
-      console.log("apiKey",session.get('apiKey'));
-      session.destroy();
-    }
-  })
 
-  res.redirect("/login");
-})
 
-app.get('/links',
-function(req, res) {
+app.get('/links', function(req, res) {
   new Session({apiKey: req.cookies.apiKey}).fetch().then(function(found){
     if (found) {
       Links.reset().fetch().then(function(links) {
@@ -68,11 +66,9 @@ function(req, res) {
       res.redirect("/login");
     }
   });
-
 });
 
-app.post('/links',
-function(req, res) {
+app.post('/links', function(req, res) {
   var uri = req.body.url;
   if (!util.isValidUrl(uri)) {
     console.log('Not a valid url: ', uri);
@@ -95,7 +91,6 @@ function(req, res) {
           base_url: req.headers.origin
         });
 
-        console.log(link.get('url'), link.get('base_url'));
         link.save().then(function(newLink) {
           Links.add(newLink);
           res.send(200, newLink);
@@ -123,8 +118,6 @@ setCookie("username", "id", expires);
 */
 
 app.post('/signup', function(req, res) {
-  //console.log(req.body);
-  //console.log(JSON.stringify({username:req.body.username}));
   var username = req.body.username;
   new User({username: username}).fetch().then(function(found) {
     if(found) {
@@ -133,29 +126,28 @@ app.post('/signup', function(req, res) {
       var user = new User(req.body);
       user.save()
         .then(function(newUser) {
-          console.log(newUser)
           Users.add(newUser);
           var apiKey = uuid.v1();
-          res.cookie("apiKey", apiKey)
-          console.log(newUser);
+          res.cookie("apiKey", apiKey, { HttpOnly: true })
           var session = new Session({apiKey : apiKey, user_id: newUser.get('id')});
           session.save().then(function(data) {console.log(data) })
           res.redirect('/')
-        })
+        });
     }
   })
 });
-
 
 app.post('/login', function(req, res) {
   console.log(req.body);
   var username = req.body.username;
   new User({username: username}).fetch().then(function(found) {
     if(found) {
-      bcrypt.compare(req.body.password, found.get("password"), function(err, match) {
+      // check if the password is correct
+      found.comparePassword(req.body.password, function(err, match) {
         if(match) {
+          // give the user an apiKey
           var apiKey = uuid.v1();
-          res.cookie("apiKey", apiKey);
+          res.cookie("apiKey", apiKey, { HttpOnly: true });
           console.log("right password");
           var session = new Session({apiKey : apiKey, user_id: found.get('id')});
           session.save().then(function(data) {console.log(data) })
@@ -171,8 +163,16 @@ app.post('/login', function(req, res) {
   })
 });
 
-/*   app.post('/logout',...)
-*/
+app.get('/logout', function(req, res){
+  new Session({apiKey: req.cookies.apiKey}).fetch().then(function(session){
+    if(session) {
+      console.log("apiKey",session.get('apiKey'));
+      session.destroy();
+    }
+  })
+
+  res.redirect("/login");
+})
 
 /************************************************************/
 // Handle the wildcard route last - if all other routes fail

@@ -15,7 +15,12 @@ var User = db.Model.extend({
     });
   },
 
-  // savePassword: function(password, options) {
+   comparePassword: function(password, callback) {
+     bcrypt.compare(password, this.get('password'), function(err, match){
+       console.log(match)
+       callback(err, match);
+     })
+   }
   //   var model = this;
   //   var salt = this.get('salt');
   //   console.log(salt);

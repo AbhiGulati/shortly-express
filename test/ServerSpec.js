@@ -63,7 +63,7 @@ describe('', function() {
 
     var requestWithSession = request.defaults({jar: true});
 
-    xbeforeEach(function(done){      // create a user that we can then log-in
+    beforeEach(function(done){      // create a user that we can then log-in
       new User({
           'username': 'Phillip',
           'password': 'Phillip'
@@ -124,6 +124,7 @@ describe('', function() {
           db.knex('urls')
             .where('url', '=', 'http://www.roflzoo.com/')
             .then(function(urls) {
+              console.log(urls['0']);
               if (urls['0'] && urls['0']['url']) {
                 var foundUrl = urls['0']['url'];
               }
