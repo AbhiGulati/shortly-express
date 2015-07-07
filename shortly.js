@@ -2,6 +2,9 @@ var express = require('express');
 var util = require('./lib/utility');
 var partials = require('express-partials');
 var bodyParser = require('body-parser');
+var cookieParser = require('cookie-parser');
+var uuid = require('node-uuid');
+var bcrypt = require('bcrypt-nodejs');
 
 
 var db = require('./app/config');
@@ -10,6 +13,7 @@ var User = require('./app/models/user');
 var Links = require('./app/collections/links');
 var Link = require('./app/models/link');
 var Click = require('./app/models/click');
+var Session = require('./app/models/session')
 
 var app = express();
 
@@ -20,12 +24,15 @@ app.use(partials());
 app.use(bodyParser.json());
 // Parse forms (signup/login)
 app.use(bodyParser.urlencoded({ extended: true }));
+// Cookies!
+app.use(cookieParser());
 app.use(express.static(__dirname + '/public'));
 
 
 app.get('/',
 function(req, res) {
   res.render('index');
+  console.log("cookies", req.cookies);
 });
 
 app.get('/login',
@@ -45,6 +52,14 @@ function(req, res) {
 
 app.get('/links',
 function(req, res) {
+  new Session({apiKey: req.cookies.apiKey}).fetch().then(function(found){
+    if (found) {
+
+    }
+  }
+
+
+
   Links.reset().fetch().then(function(links) {
     res.send(200, links.models);
   });
@@ -89,28 +104,55 @@ function(req, res) {
 /************************************************************/
 
 app.post('/signup', function(req, res) {
-  console.log(req.body);
-  console.log(JSON.stringify({username:req.body.username}));
+  //console.log(req.body);
+  //console.log(JSON.stringify({username:req.body.username}));
   var username = req.body.username;
   new User({username: username}).fetch().then(function(found) {
-    console.log(found);
     if(found) {
       res.status(422).send({error: "this username already exists"});
     } else {
-      var user = new User({username:req.body.username});
+      var user = new User(req.body);
       user.save()
         .then(function(newUser) {
-          console.log('newUser',newUser)
+          console.log(newUser)
           Users.add(newUser);
-          res.send(200, newUser)
+          var apiKey = uuid.v1();
+          res.cookie("apiKey", apiKey)
+          console.log(newUser);
+          var session = new Session({apiKey : apiKey, user_id: newUser.get('id')});
+          session.save().then(function(data) {console.log(data) })
+          res.redirect('/')
         })
     }
   })
-})
+});
 
-/*
-   app.post('login', ....)
-   app.post('/logout',...)
+
+app.post('/login', function(req, res) {
+  console.log(req.body);
+  var username = req.body.username;
+  new User({username: username}).fetch().then(function(found) {
+    if(found) {
+      bcrypt.compare(req.body.password, found.get("password"), function(err, match) {
+        if(match) {
+          var apiKey = uuid.v1();
+          res.cookie("apiKey", apiKey);
+          console.log("right password");
+          var session = new Session({apiKey : apiKey, user_id: found.get('id')});
+          session.save().then(function(data) {console.log(data) })
+          res.redirect('/');
+        } else {
+          console.log("wrong password");
+          res.send(401, "You are not authorized");
+        }
+      });
+    } else {
+      res.send(400, "That username does not exist");
+    }
+  })
+});
+
+/*   app.post('/logout',...)
 */
 
 /************************************************************/
@@ -122,6 +164,7 @@ app.post('/signup', function(req, res) {
 app.get('/*', function(req, res) {
   new Link({ code: req.params[0] }).fetch().then(function(link) {
     if (!link) {
+      res.status(404);
       res.redirect('/');
     } else {
       var click = new Click({

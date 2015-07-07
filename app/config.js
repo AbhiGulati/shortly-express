@@ -49,7 +49,7 @@ db.knex.schema.hasTable('clicks').then(function(exists) {
 db.knex.schema.hasTable('users').then(function(exists){
   if(!exists) {
     db.knex.schema.createTable('users', function(user){
-      user.increments('user_id').primary();
+      user.increments('id').primary();
       user.string('username').unique();
       user.string('password')
       user.timestamps()
@@ -59,6 +59,18 @@ db.knex.schema.hasTable('users').then(function(exists){
   }
 })
 
+db.knex.schema.hasTable('sessions').then(function(exists){
+  if(!exists) {
+    db.knex.schema.createTable('sessions', function(user){
+      user.increments('id').primary();
+      user.string('apiKey').unique();
+      user.string('user_id')
+      user.timestamps()
+    }).then(function(table) {
+      console.log('Created Table', table)
+    })
+  }
+})
 
 
 
